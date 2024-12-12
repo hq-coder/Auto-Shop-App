@@ -4,6 +4,8 @@ import axios from 'axios';
 import MapView, { Marker } from 'react-native-maps';
 import { Rating } from 'react-native-ratings';
 
+import { Video } from 'expo-av';
+
 const HomeScreen = () => {
   const [reviews, setReviews] = useState([]);
   const [currentReviewIndex, setCurrentReviewIndex] = useState(0);
@@ -133,6 +135,20 @@ const HomeScreen = () => {
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollViewContainer}>
+          {/* Video Section */}
+          <View style={styles.videoContainer}>
+{/* Video Section */}
+<View style={styles.videoContainer}>
+          <Video
+            source={require('../images/NLC-video.mp4')}
+            style={styles.video}
+            resizeMode="cover"
+            shouldPlay
+            isLooping
+            isMuted
+          />
+        </View>
+          </View>
           {/* Paragraph */}
         <View style={styles.servicesContainer}>
             <Animated.Text
@@ -309,6 +325,17 @@ const styles = StyleSheet.create({
     marginBottom: 10,          // Even spacing between text
     fontWeight: 'bold',        // Make text bold
     textAlign: 'center',       // Center-align the text
+  },
+
+  videoContainer: {
+    width: '100%',
+    height: 550,
+    marginBottom: 20,
+    overflow: 'hidden',
+  },
+  video: {
+    width: '100%',
+    height: '100%',
   },
   
   footer: {
