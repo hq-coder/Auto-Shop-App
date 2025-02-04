@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
 import { Picker } from '@react-native-picker/picker';
 import logo from '../images/templogo.jpg';
-import { View, Text, TextInput, Button, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Image, TouchableOpacity, Alert } from 'react-native';
+import Frontapi from '../Frontapi';
+import Icon from 'react-native-vector-icons/FontAwesome';
+import axios from 'axios';
 
-const LoginScreen = ({ navigation, route, }) => {
-  const [isGuest, setIsGuest] = useState(false); // Define setIsGuest
+const LoginScreen = ({ navigation }) => {
+  const [isGuest, setIsGuest] = useState(false);
   const [isBusiness, setIsBusiness] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
   // Business form fields
   const [businessName, setBusinessName] = useState('');
@@ -17,8 +21,16 @@ const LoginScreen = ({ navigation, route, }) => {
   const [businessAddress, setBusinessAddress] = useState('');
   const [service, setService] = useState('');
   const [customService, setCustomService] = useState('');
+  const [customerName, setCustomerName] = useState('');
+const [customerPhone, setCustomerPhone] = useState('');
+const [customerAddress, setCustomerAddress] = useState('');
+const togglePasswordVisibility = () => {
+  setIsPasswordVisible(!isPasswordVisible);
+};
+
 
   const serviceOptions = [
+    'Auto Body Repair',
     'Oil Change',
     'Brake Repair',
     'Tire Replacement',
@@ -29,39 +41,115 @@ const LoginScreen = ({ navigation, route, }) => {
     'Other',
   ];
 
-  const handleSignUp = async () => {
-    try {
-      if (isBusiness) {
-        if (password !== confirmPassword) {
-          alert('Passwords do not match');
-          return;
-        }
-        const selectedService = service === 'Other' ? customService : service;
+ // Handle Sign-Up
+const handleSignUp = async () => {
+  if (password !== confirmPassword) {
+    Alert.alert('Error', 'Passwords do not match');
+    return;
+  }
 
-        // Add authentication logic here (e.g., Firebase)
-        alert(`Business account created for ${businessName}, offering ${selectedService}`);
+  const userData = {
+    email,
+    password,
+    role: isBusiness ? 'business' : 'customer',
+    ...(isBusiness
+      ? {
+          name: businessName,
+          phone: businessPhone,
+          address: businessAddress,
+          business_type: service === 'Other' ? customService : service,
+        }
+      : {
+          name: customerName,
+          phone: customerPhone,
+          address: customerAddress,
+        }),
+  };
+
+  try {
+    const response = await axios.post('http://localhost:5000/api/auth/register', userData);
+
+    if (response.status === 201) {
+      // Automatically log in after registration
+      const loginResponse = await axios.post('http://localhost:5000/api/auth/login', {
+        email: userData.email,
+        password: userData.password,
+      });
+
+      if (loginResponse.status === 200) {
+        Alert.alert('Welcome', `Hello, ${loginResponse.data.user.email}`);
+        navigation.navigate('Home'); // Redirect to the Home screen
       } else {
-        if (password !== confirmPassword) {
-          alert('Passwords do not match');
-          return;
-        }
+        Alert.alert('Error', 'Login failed. Please try manually.');
+      }
+    } else {
+      Alert.alert('Error', response.data.message || 'Registration failed');
+    }
+  } catch (error) {
+    console.error('Sign-Up/Login Error:', error.response?.data || error.message);
+    Alert.alert('Error', error.response?.data?.message || 'Internal server error');
+  }
 
-        // Add authentication logic here (e.g., Firebase)
-        alert(`Customer account created for ${email}`);
+    
+
+    try {
+      const response = await Frontapi.registerUser(userData);
+      if (response.status === 200) {
+  const { user } = response.data;
+  setIsLoggedIn(true); // Update state here
+  navigation.navigate(user.role === 'customer' ? 'CustomerProfile' : 'BusinessProfile');
+}
+
+      if (response.status === 201) {
+        Alert.alert('Success', 'Account created successfully');
+        setIsSignUp(false); // Redirect to login
       }
     } catch (error) {
-      alert(`Error: ${error.message}`);
+      console.error('Error during signup:', error.response?.data || error.message);
+      Alert.alert('Error', 'Failed to create account. Please try again.');
     }
   };
 
+  // Handle Login
   const handleLogin = async () => {
     try {
-      // Add authentication logic here (e.g., Firebase)
-      alert(`${isBusiness ? 'Business' : 'Customer'} Login for ${email}`);
+        const userData = { email, password };
+        const response = await Frontapi.loginUser(userData);
+        if (response) {
+            const { user } = response;
+            Alert.alert('Login Successful', `Welcome back, ${user.email}`);
+            
+            // Navigate based on role
+            if (user.role === 'customer') {
+                navigation.navigate('CustomerProfile'); // Redirect to Customer Profile
+            } else if (user.role === 'business') {
+                navigation.navigate('BusinessProfile'); // Redirect to Business Profile
+            }
+        }
     } catch (error) {
-      alert(`Error: ${error.message}`);
+        console.error('Error during login:', error.response?.data || error.message);
+        Alert.alert('Error', 'Invalid email or password. Please try again.');
+    }
+    setIsLoggedIn(true);
+};
+
+const LoginScreen = ({ navigation, setIsLoggedIn }) => {
+  const handleLogin = async () => {
+    try {
+      const userData = { email, password };
+      const response = await Frontapi.loginUser(userData);
+      if (response.status === 200) {
+        const { user } = response.data;
+        setIsLoggedIn(true); // Update login state
+        Alert.alert('Login Successful', `Welcome back, ${user.email}`);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Invalid email or password. Please try again.');
     }
   };
+};
+
+
 
   return (
     <View style={styles.container}>
@@ -88,113 +176,133 @@ const LoginScreen = ({ navigation, route, }) => {
 
       {/* Form */}
       <View style={styles.formContainer}>
-        <Text style={styles.title}>
-          {isSignUp
-            ? isBusiness
-              ? 'Business Sign Up'
-              : 'Customer Sign Up'
-            : isBusiness
-            ? 'Business Login'
-            : 'Customer Login'}
-        </Text>
+  <Text style={styles.title}>
+    {isSignUp
+      ? isBusiness
+        ? 'Business Sign Up'
+        : 'Customer Sign Up'
+      : isBusiness
+      ? 'Business Login'
+      : 'Customer Login'}
+  </Text>
 
-        {isSignUp && isBusiness && (
-          <>
-            <TextInput
-              style={styles.input}
-              placeholder="Business Name"
-              value={businessName}
-              onChangeText={setBusinessName}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Phone Number"
-              value={businessPhone}
-              onChangeText={setBusinessPhone}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Business Address"
-              value={businessAddress}
-              onChangeText={setBusinessAddress}
-            />
-            <Text style={styles.label}>Services Offered</Text>
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={service}
-                onValueChange={(itemValue) => {
-                  setService(itemValue);
-                  if (itemValue !== 'Other') setCustomService('');
-                }}
-                style={styles.picker}
-              >
-                <Picker.Item label="Select a service" value="" />
-                {serviceOptions.map((option, index) => (
-                  <Picker.Item key={index} label={option} value={option} />
-                ))}
-              </Picker>
-            </View>
-            {service === 'Other' && (
-              <TextInput
-                style={styles.input}
-                placeholder="Specify your service"
-                value={customService}
-                onChangeText={setCustomService}
-              />
-            )}
-          </>
-        )}
-
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
-        {isSignUp && (
-          <TextInput
-            style={styles.input}
-            placeholder="Confirm Password"
-            secureTextEntry
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-          />
-        )}
-
-        <TouchableOpacity
-          onPress={isSignUp ? handleSignUp : handleLogin}
-          style={styles.button}
+  {/* Business Sign-Up Fields */}
+  {isSignUp && isBusiness && (
+    <>
+      <TextInput
+        style={styles.input}
+        placeholder="Your Name"
+        value={businessName}
+        onChangeText={setBusinessName}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Phone Number"
+        value={businessPhone}
+        onChangeText={setBusinessPhone}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Address"
+        value={businessAddress}
+        onChangeText={setBusinessAddress}
+      />
+      <Text style={styles.label}>Services Offered</Text>
+      <View style={styles.pickerContainer}>
+        <Picker
+          selectedValue={service}
+          onValueChange={(itemValue) => {
+            setService(itemValue);
+            if (itemValue !== 'Other') setCustomService('');
+          }}
+          style={styles.picker}
         >
-          <Text style={styles.buttonText}>{isSignUp ? 'Sign Up' : 'Login'}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => setIsSignUp(!isSignUp)}
-          style={styles.button}
-        >
-          <Text style={styles.buttonText}>
-            {isSignUp ? "Already have an account? Login" : "Don't have an account? Sign Up"}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Add Guest Login Button */}
-        <TouchableOpacity onPress={() => setIsGuest(true)} style={styles.button}>
-        <Text style={styles.buttonText}>Continue as Guest</Text>
-      </TouchableOpacity>
-
+          <Picker.Item label="Select a service" value="" />
+          {serviceOptions.map((option, index) => (
+            <Picker.Item key={index} label={option} value={option} />
+          ))}
+        </Picker>
       </View>
+      {service === 'Other' && (
+        <TextInput
+          style={styles.input}
+          placeholder="Specify your service"
+          value={customService}
+          onChangeText={setCustomService}
+        />
+      )}
+    </>
+  )}
+
+  {/* Email Input */}
+  <View style={styles.inputContainer}>
+    <TextInput
+      style={styles.input}
+      placeholder="Email"
+      value={email}
+      onChangeText={setEmail}
+      keyboardType="email-address"
+      autoCapitalize="none"
+    />
+  </View>
+
+  {/* Password Input */}
+  <View style={styles.inputContainer}>
+    <TextInput
+      style={styles.input}
+      placeholder="Password"
+      secureTextEntry={!isPasswordVisible}
+      value={password}
+      onChangeText={setPassword}
+    />
+    <TouchableOpacity onPress={togglePasswordVisibility} style={styles.iconContainer}>
+      <Icon
+        name={isPasswordVisible ? 'eye' : 'eye-slash'}
+        size={20}
+        color="#aaa"
+      />
+    </TouchableOpacity>
+  </View>
+
+  {/* Confirm Password for Sign-Up */}
+  {isSignUp && (
+    <View style={styles.inputContainer}>
+      <TextInput
+        style={styles.input}
+        placeholder="Confirm Password"
+        secureTextEntry
+        value={confirmPassword}
+        onChangeText={setConfirmPassword}
+      />
+    </View>
+  )}
+
+  {/* Sign Up or Login Button */}
+  <TouchableOpacity
+    onPress={isSignUp ? handleSignUp : handleLogin}
+    style={styles.button}
+  >
+    <Text style={styles.buttonText}>{isSignUp ? 'Sign Up' : 'Login'}</Text>
+  </TouchableOpacity>
+
+  {/* Toggle Sign-Up/Login */}
+  <TouchableOpacity
+    onPress={() => setIsSignUp(!isSignUp)}
+    style={styles.button}
+  >
+    <Text style={styles.buttonText}>
+      {isSignUp ? "Already have an account? Login" : "Don't have an account? Sign Up"}
+    </Text>
+  </TouchableOpacity>
+
+  {/* Continue as Guest */}
+  <TouchableOpacity onPress={() => setIsGuest(true)} style={styles.button}>
+    <Text style={styles.buttonText}>Continue as Guest</Text>
+  </TouchableOpacity>
+</View>
     </View>
   );
 };
-
-
 
 
 const styles = StyleSheet.create({
@@ -289,6 +397,26 @@ const styles = StyleSheet.create({
       fontWeight: 'bold',
       textAlign: 'center',
     },
+
+    inputContainer: {
+      flexDirection: 'row', // Places TextInput and Icon horizontally
+      alignItems: 'center', // Aligns items vertically in the center
+      width: '100%',
+      marginBottom: 10,
+      borderWidth: 1,
+      borderRadius: 5,
+      borderColor: '#bbb',
+      backgroundColor: '#333', // Dark background for the input
+    },
+    input: {
+      flex: 1, // Takes up the remaining space
+      padding: 12,
+      color: '#fff',
+    },
+    iconContainer: {
+      padding: 10, // Adds space around the icon for better touchability
+    },
+  
   });
   
 

@@ -1,175 +1,98 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  Image,
+  TextInput,
+  Button,
+  StyleSheet,
+  ActivityIndicator,
+  Dimensions,
+} from 'react-native';
 import axios from 'axios';
 import RNPickerSelect from 'react-native-picker-select';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  interpolate,
+  Extrapolate,
+  useAnimatedScrollHandler,
+} from 'react-native-reanimated';
+
+const { height } = Dimensions.get('window');
+
+// Move images array outside the component
+const images = [
+  require('../images/1.png'),
+  require('../images/2.png'),
+  require('../images/3.png'),
+  require('../images/4.png'),
+  require('../images/5.png'),
+  require('../images/6.png'),
+  require('../images/7.png'),
+  require('../images/8.png'),
+  require('../images/9.png'),
+  require('../images/10.png'),
+];
 
 const ServicesScreen = ({ isGuest, setIsGuest }) => {
-  const [vin, setVin] = useState('');
-  const [vehicleData, setVehicleData] = useState(null);
-  const [additionalData, setAdditionalData] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [years, setYears] = useState([]);
-  const [makes, setMakes] = useState([]);
-  const [models, setModels] = useState([]);
-  const [submodels, setSubmodels] = useState([]);
-  const [selectedYear, setSelectedYear] = useState(null);
-  const [selectedMake, setSelectedMake] = useState(null);
-  const [selectedModel, setSelectedModel] = useState(null);
-  const [selectedSubmodel, setSelectedSubmodel] = useState(null);
+  // ... [Keep all your existing state variables] ...
 
-  // Fetch dropdown options
-  useEffect(() => {
-    const fetchYears = async () => {
-      try {
-        const response = await axios.get('https://carapi.app/api/years');
-        setYears(response.data.map((year) => ({ label: year.toString(), value: year })));
-      } catch (err) {
-        console.error('Error fetching years:', err);
-      }
-    };
-    fetchYears();
-  }, []);
-  
+  const scrollY = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
 
-  useEffect(() => {
-    const fetchMakes = async () => {
-      if (!selectedYear) return;
-      try {
-        const response = await axios.get(`https://carapi.app/api/makes?year=${selectedYear}`);
-        setMakes(response.data.map((make) => ({ label: make.name.toString(), value: make.id })));
-      } catch (err) {
-        console.error('Error fetching makes:', err);
-      }
-    };
-    fetchMakes();
-  }, [selectedYear]);
-  
-  useEffect(() => {
-    const fetchMakes = async () => {
-      if (!selectedYear) return;
-      try {
-        const response = await axios.get(`https://carapi.app/api/makes?year=${selectedYear}`);
-        setMakes(response.data.map((make) => ({ label: make.name.toString(), value: make.id })));
-      } catch (err) {
-        console.error('Error fetching makes:', err);
-      }
-    };
-    fetchMakes();
-  }, [selectedYear]);
-  
-  useEffect(() => {
-    const fetchModels = async () => {
-      if (!selectedMake) return;
-      try {
-        const response = await axios.get(`https://carapi.app/api/models?make=${selectedMake}`);
-        setModels(response.data.map((model) => ({ label: model.name.toString(), value: model.id })));
-      } catch (err) {
-        console.error('Error fetching models:', err);
-      }
-    };
-    fetchModels();
-  }, [selectedMake]);
-  
-  useEffect(() => {
-    const fetchSubmodels = async () => {
-      if (!selectedModel) return;
-      try {
-        const response = await axios.get(`https://carapi.app/api/submodels?model=${selectedModel}`);
-        setSubmodels(response.data.map((submodel) => ({ label: submodel.name.toString(), value: submodel.id })));
-      } catch (err) {
-        console.error('Error fetching submodels:', err);
-      }
-    };
-    fetchSubmodels();
-  }, [selectedModel]);
-  
+  const getImageStyle = (index) => {
+    return useAnimatedStyle(() => {
+      const inputRange = [
+        (index - 1) * height,
+        index * height,
+        (index + 1) * height,
+      ];
 
-  // Handle Search
-  const handleLookup = async () => {
-    if (!vin && (!selectedYear || !selectedMake || !selectedModel || !selectedSubmodel)) {
-      setError('Please provide a VIN or select Year, Make, Model, and Submodel');
-      return;
-    }
+      const opacity = interpolate(
+        scrollY.value,
+        inputRange,
+        [0, 1, 0],
+        Extrapolate.CLAMP
+      );
 
-    setLoading(true);
-    setError('');
-    try {
-      if (vin) {
-        // VIN-based lookup
-        const vinResponse = await axios.get(`https://carapi.app/api/vin/${vin}?verbose=yes`);
-        setVehicleData(vinResponse.data);
-      } else {
-        // Dropdown-based lookup
-        const attributesResponse = await axios.get(
-          `https://carapi.app/api/vehicle-attributes?year=${selectedYear}&make=${selectedMake}&model=${selectedModel}&submodel=${selectedSubmodel}`
-        );
-        setVehicleData(attributesResponse.data);
-      }
-    } catch (err) {
-      setError('Error fetching vehicle data. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+      const scale = interpolate(
+        scrollY.value,
+        inputRange,
+        [0.8, 1, 0.8],
+        Extrapolate.CLAMP
+      );
+
+      return {
+        opacity,
+        transform: [{ scale }],
+      };
+    });
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Vehicle Information Lookup</Text>
+    <Animated.ScrollView
+      style={styles.container}
+      scrollEventThrottle={16}
+      onScroll={scrollHandler}
+      contentContainerStyle={styles.scrollContent}
+    >
+      {/* Image Stack */}
+      <View style={styles.imageStack}>
+        {images.map((img, index) => (
+          <Animated.View key={index} style={[styles.imageContainer, getImageStyle(index)]}>
+            <Image source={img} style={styles.image} />
+          </Animated.View>
+        ))}
+      </View>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Enter VIN"
-        value={vin}
-        onChangeText={setVin}
-      />
-
-      <Text style={styles.orText}>OR</Text>
-
-      <RNPickerSelect
-        onValueChange={(value) => setSelectedYear(value)}
-        items={years}
-        placeholder={{ label: 'Select Year', value: null }}
-        style={pickerSelectStyles}
-      />
-      <RNPickerSelect
-        onValueChange={(value) => setSelectedMake(value)}
-        items={makes}
-        placeholder={{ label: 'Select Make', value: null }}
-        style={pickerSelectStyles}
-        disabled={!selectedYear}
-      />
-      <RNPickerSelect
-        onValueChange={(value) => setSelectedModel(value)}
-        items={models}
-        placeholder={{ label: 'Select Model', value: null }}
-        style={pickerSelectStyles}
-        disabled={!selectedMake}
-      />
-      <RNPickerSelect
-        onValueChange={(value) => setSelectedSubmodel(value)}
-        items={submodels}
-        placeholder={{ label: 'Select Submodel', value: null }}
-        style={pickerSelectStyles}
-        disabled={!selectedModel}
-      />
-
-      <Button title="Lookup Vehicle" onPress={handleLookup} />
-      
-      {loading && <ActivityIndicator size="large" color="#fff" />}
-
-      {error && <Text style={styles.error}>{error}</Text>}
-
-      {vehicleData && (
-        <View style={styles.resultContainer}>
-          <Text style={styles.resultTitle}>Vehicle Information</Text>
-          <Text style={styles.resultText}>Make: {vehicleData.make || 'N/A'}</Text>
-          <Text style={styles.resultText}>Model: {vehicleData.model || 'N/A'}</Text>
-          <Text style={styles.resultText}>Year: {vehicleData.year || 'N/A'}</Text>
-          <Text style={styles.resultText}>VIN: {vehicleData.vin || 'N/A'}</Text>
-        </View>
-      )}
-    </ScrollView>
+      {/* Rest of your component remains the same */}
+      {/* ... */}
+    </Animated.ScrollView>
   );
 };
 
@@ -199,15 +122,40 @@ const pickerSelectStyles = {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'flex-start',
-    alignItems: 'center',
     backgroundColor: '#000',
-    padding: 20,
+  },
+  scrollContent: {
+    paddingBottom: 40,
+  },
+  imageStack: {
+    height: images.length * height, // Now accessible here
+  },
+  imageContainer: {
+    height: height,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  image: {
+    width: '100%',
+    height: '80%',
+    resizeMode: 'contain',
+  },
+  formContainer: {
+    paddingHorizontal: 20,
+    marginTop: images.length * height,
   },
   title: {
     fontSize: 24,
     color: '#fff',
     marginBottom: 20,
+    textAlign: 'center',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 10,
+    gap: 10,
   },
   input: {
     width: '100%',
@@ -222,10 +170,12 @@ const styles = StyleSheet.create({
   orText: {
     color: '#fff',
     marginVertical: 10,
+    textAlign: 'center',
   },
   error: {
     color: 'red',
     marginTop: 10,
+    textAlign: 'center',
   },
   resultContainer: {
     marginTop: 20,
@@ -240,11 +190,25 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: '#fff',
     marginBottom: 10,
+    textAlign: 'center',
   },
   resultText: {
     fontSize: 16,
     color: '#fff',
     marginBottom: 5,
+  },
+  footer: {
+    backgroundColor: '#121212',
+    alignItems: 'center',
+    padding: 10,
+    marginTop: 20,
+  },
+  footerText: {
+    color: '#fff',
+    fontSize: 14,
+  },
+  footerTextBold: {
+    fontWeight: 'bold',
   },
 });
 

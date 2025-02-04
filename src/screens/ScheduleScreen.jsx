@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, FlatList, TextInput, Button, StyleSheet, ScrollView, ProgressBarAndroid } from 'react-native';
 import { Calendar } from 'react-native-calendars';
+import { Bar } from 'react-native-progress';
+
+
 
 const ScheduleScreen = ({ isGuest, setIsGuest }) => {
   const [selectedDate, setSelectedDate] = useState('');
@@ -9,7 +12,9 @@ const ScheduleScreen = ({ isGuest, setIsGuest }) => {
     { id: '2', date: '2024-12-10', time: '12:30 PM', service: 'Tire Rotation' },
     { id: '3', date: '2024-12-12', time: '3:00 PM', service: 'Brake Inspection' },
   ]);
-  const [vehicleProgress, setVehicleProgress] = useState(0.6); // Example: 60% completed
+  const [vehicleProgress, setVehicleProgress] = useState(0.6); 
+  
+
 
   const [newAppointment, setNewAppointment] = useState({
     time: '',
@@ -49,10 +54,17 @@ const ScheduleScreen = ({ isGuest, setIsGuest }) => {
       },
     ]);
 
+
+
+
     // Reset form and error message
     setNewAppointment({ time: '', service: '' });
     setErrorMessage('');
   };
+
+  const filteredAppointments = selectedDate
+  ? appointments.filter((appointment) => appointment.date === selectedDate)
+  : [];
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -79,19 +91,20 @@ const ScheduleScreen = ({ isGuest, setIsGuest }) => {
       {/* Appointments List */}
       <Text style={styles.subHeader}>Appointments:</Text>
       <FlatList
-        data={appointments.filter((appointment) => appointment.date === selectedDate)}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.appointment}>
-            <Text style={styles.appointmentText}>
-              {item.time} - {item.service}
-            </Text>
-          </View>
-        )}
-        ListEmptyComponent={
-          <Text style={styles.noAppointmentsText}>No appointments for this date.</Text>
-        }
-      />
+  data={filteredAppointments}
+  keyExtractor={(item) => item.id}
+  renderItem={({ item }) => (
+    <View style={styles.appointment}>
+      <Text style={styles.appointmentText}>
+        {item.time} - {item.service}
+      </Text>
+    </View>
+  )}
+  ListEmptyComponent={
+    <Text style={styles.noAppointmentsText}>No appointments for this date.</Text>
+  }
+/>
+
 
       {/* Appointment Form */}
       <Text style={styles.subHeader}>Schedule an Appointment:</Text>
@@ -117,12 +130,15 @@ const ScheduleScreen = ({ isGuest, setIsGuest }) => {
       {/* Vehicle Progress Bar */}
       <Text style={styles.subHeader}>Vehicle Service Progress:</Text>
       <View style={styles.progressContainer}>
-        <ProgressBarAndroid
-          styleAttr="Horizontal"
-          indeterminate={false}
-          progress={vehicleProgress}
-          color="red"
-        />
+      <Bar 
+  progress={vehicleProgress || 0} 
+  width={200} 
+  color="red" 
+/>
+
+
+
+
         <Text style={styles.progressText}>{Math.round(vehicleProgress * 100)}% Completed</Text>
       </View>
     </ScrollView>

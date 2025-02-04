@@ -133,6 +133,7 @@ const HomeScreen = () => {
         <View style={styles.header}>
           <Image source={require('../images/templogo.jpg')} style={styles.logo} />
         </View>
+     
 
         <ScrollView contentContainerStyle={styles.scrollViewContainer}>
           {/* Video Section */}
